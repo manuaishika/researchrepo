@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Research Paper Explorer</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="main">
+      <header class="header-container">
+        <h1 class="main-title">Research Paper Explorer</h1>
+        <h2 class="subtitle">Find the best explanations and implementations</h2>
+      </header>
+
+      <section class="search-container">
+        <form id="search-form" class="search-form">
+          <div class="search-input-row">
+            <input
+              id="paper-input"
+              type="text"
+              placeholder="Enter a research paper name (e.g. 'Attention is All You Need')"
+              autocomplete="off"
+            />
+            <button type="submit">Search</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="results-layout">
+        <div class="result-column">
+          <div class="result-section">
+            <div class="section-header">
+              <span>YouTube Explanations</span>
+              <span>▶</span>
+            </div>
+            <div id="videos-container" class="results-body empty">
+              <div class="empty-state">
+                Enter a paper name to find video explanations
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-column">
+          <div class="result-section">
+            <div class="section-header">
+              <span>Code Implementations</span>
+              <span>⌨</span>
+            </div>
+            <div id="repos-container" class="results-body empty">
+              <div class="empty-state">
+                Enter a paper name to find implementations
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="attribution">
+        Results sourced from YouTube and GitHub • Backend powered by FastAPI
+      </footer>
+    </main>
+
+    <script src="/static/script.js"></script>
+  </body>
+  </html>
+
+
