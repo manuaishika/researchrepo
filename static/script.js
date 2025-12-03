@@ -5,6 +5,7 @@ const currentCategoryTitle = document.getElementById("current-category-title");
 const searchForm = document.getElementById("search-form");
 const paperInput = document.getElementById("paper-input");
 const autocompleteDropdown = document.getElementById("autocomplete-dropdown");
+const popularPapersContainer = document.getElementById("popular-papers-container");
 const videosContainer = document.getElementById("videos-container");
 const reposContainer = document.getElementById("repos-container");
 const resultsSection = document.getElementById("results-section");
@@ -21,6 +22,8 @@ let autocompleteDebounceTimer = null;
 async function init() {
   await Promise.all([loadCategories(), loadYears()]);
   setupEventListeners();
+  // Load papers for current category
+  await loadPopularPapers(currentCategory, currentYear);
   // Show results section by default (empty)
   resultsSection.classList.add("visible");
 }
@@ -68,9 +71,10 @@ function renderCategories() {
       document.querySelectorAll(".category-item").forEach((i) => i.classList.remove("active"));
       item.classList.add("active");
 
-      // Update current category
+      // Update current category and load papers
       currentCategory = item.dataset.category;
       currentCategoryTitle.textContent = currentCategory === "All" ? "Research Paper Explorer" : currentCategory;
+      loadPopularPapers(currentCategory, currentYear);
     });
   });
 }
@@ -144,7 +148,7 @@ function renderPopularPapers(papers) {
 
   // Add click handlers to paper cards
   document.querySelectorAll(".paper-card").forEach((card) => {
-    card.addEventListener("click", () => {
+    card.addEventListener("click", async () => {
       const paperTitle = card.dataset.paper;
       paperInput.value = paperTitle;
       
@@ -154,9 +158,11 @@ function renderPopularPapers(papers) {
         block: "center" 
       });
       
-      // Focus search input
+      // Focus search input and trigger search
       setTimeout(() => {
         paperInput.focus();
+        // Optionally auto-search when clicking a paper
+        // await performSearch(paperTitle);
       }, 300);
     });
   });
@@ -167,7 +173,8 @@ function setupEventListeners() {
   // Year selector change
   yearSelect.addEventListener("change", (event) => {
     currentYear = event.target.value || null;
-    // Year filter is for category browsing, doesn't affect search
+    // Reload papers with new year filter
+    loadPopularPapers(currentCategory, currentYear);
   });
 
   // Search input for autocomplete
