@@ -7,63 +7,82 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <main class="main">
-      <header class="header-container">
-        <h1 class="main-title">Research Paper Explorer</h1>
-        <h2 class="subtitle">Find the best explanations and implementations</h2>
-      </header>
-
-      <section class="search-container">
-        <form id="search-form" class="search-form">
-          <div class="search-input-row">
-            <input
-              id="paper-input"
-              type="text"
-              placeholder="Enter a research paper name (e.g. 'Attention is All You Need')"
-              autocomplete="off"
-            />
-            <button type="submit">Search</button>
+    <div class="app-container">
+      <!-- Sidebar Navigation -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h1 class="logo">📚 Classic Papers</h1>
+          <div class="year-selector-wrapper">
+            <select id="year-select" class="year-select" aria-label="Filter papers by year">
+              <option value="">All Years</option>
+            </select>
           </div>
-        </form>
-      </section>
+        </div>
+        <nav class="category-nav">
+          <ul id="category-list" class="category-list">
+            <li class="category-item loading">Loading categories...</li>
+          </ul>
+        </nav>
+      </aside>
 
-      <section class="results-layout">
-        <div class="result-column">
-          <div class="result-section">
-            <div class="section-header">
-              <span>YouTube Explanations</span>
-              <span>▶</span>
+      <!-- Main Content -->
+      <main class="main-content">
+        <header class="content-header">
+          <h2 id="current-category-title" class="category-title">All Papers</h2>
+          <div class="header-actions">
+            <div class="search-container">
+              <form id="search-form" class="search-form">
+                <div class="search-input-wrapper">
+                  <input
+                    id="paper-input"
+                    type="text"
+                    placeholder="Search for a research paper or enter keywords..."
+                    autocomplete="off"
+                  />
+                  <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
+                </div>
+                <button type="submit">Search</button>
+              </form>
             </div>
-            <div id="videos-container" class="results-body empty">
-              <div class="empty-state">
-                Enter a paper name to find video explanations
+          </div>
+        </header>
+
+        <!-- Popular Papers Grid -->
+        <section class="papers-section">
+          <div id="popular-papers-container" class="papers-grid">
+            <div class="loading-state">Loading popular papers...</div>
+          </div>
+        </section>
+
+        <!-- Search Results -->
+        <section class="results-section" id="results-section">
+          <div class="results-layout">
+            <div class="result-column">
+              <div class="result-section-card">
+                <div class="section-header">
+                  <span>📺 YouTube Explanations</span>
+                </div>
+                <div id="videos-container" class="results-body">
+                  <div class="empty-state">No video explanations found</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="result-column">
+              <div class="result-section-card">
+                <div class="section-header">
+                  <span>💻 Code Implementations</span>
+                </div>
+                <div id="repos-container" class="results-body">
+                  <div class="empty-state">No code implementations found</div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <div class="result-column">
-          <div class="result-section">
-            <div class="section-header">
-              <span>Code Implementations</span>
-              <span>⌨</span>
-            </div>
-            <div id="repos-container" class="results-body empty">
-              <div class="empty-state">
-                Enter a paper name to find implementations
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <footer class="attribution">
-        Results sourced from YouTube and GitHub • Backend powered by FastAPI
-      </footer>
-    </main>
+        </section>
+      </main>
+    </div>
 
     <script src="/static/script.js"></script>
   </body>
-  </html>
-
-
+</html>
