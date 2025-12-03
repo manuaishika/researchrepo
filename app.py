@@ -1,40 +1,14 @@
-from typing import List, Optional
+from typing import List
 import re
 import urllib.parse
+import os
 
 import requests
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from flask import Flask, jsonify, request, send_from_directory
 
 
-app = FastAPI(title="Research Paper Explorer", version="1.0.0")
-
-
-class Video(BaseModel):
-    url: str
-    title: str
-    thumbnail: str
-    views: str
-    published: str
-    channel: str
-
-
-class Repo(BaseModel):
-    url: str
-    name: str
-    stars: int
-    forks: int
-    author: str
-    language: Optional[str] = None
-    description: Optional[str] = None
-
-
-class SearchResponse(BaseModel):
-    videos: List[Video]
-    repos: List[Repo]
+app = Flask(__name__, static_folder="static", static_url_path="/static")
 
 
 def search_youtube(query: str, max_results: int = 5) -> List[dict]:
@@ -228,34 +202,25 @@ def search_github_repos(query: str, max_results: int = 5) -> List[dict]:
     return repos
 
 
-def format_number(num: int) -> str:
-    if num >= 1_000_000:
-        return f"{num / 1_000_000:.1f}M"
-    if num >= 1_000:
-        return f"{num / 1_000:.1f}K"
-    return str(num)
+@app.get("/api/search")
+def search():
+    q = request.args.get("q", "").strip()
+    if len(q) < 3:
+        return jsonify({"videos": [], "repos": []}), 400
+
+    videos = search_youtube(q, 5)
+    repos = search_github_repos(q, 5)
+    return jsonify({"videos": videos, "repos": repos})
 
 
-@app.get("/api/search", response_model=SearchResponse)
-def search(q: str = Query(..., min_length=3, max_length=200)) -> SearchResponse:
-    videos = [Video(**v) for v in search_youtube(q, 5)]
-    repos_raw = search_github_repos(q, 5)
-    repos = [
-        Repo(
-            **r,
-            stars=r.get("stars", 0),
-            forks=r.get("forks", 0),
-        )
-        for r in repos_raw
-    ]
-    return SearchResponse(videos=videos, repos=repos)
+@app.get("/")
+def index():
+    return send_from_directory("static", "index.html")
 
 
-@app.get("/", include_in_schema=False)
-def index() -> FileResponse:
-    return FileResponse("static/index.html")
-
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
+if __name__ == "__main__":
+    # Run Flask dev server
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="127.0.0.1", port=port, debug=True)
 
 
