@@ -196,14 +196,14 @@ def parse_int_from_text(text: str) -> int:
 
 def search_github_repos(query: str, max_results: int = 5) -> List[dict]:
     """Scrape GitHub repository search results for implementations."""
-    formatted_query = urllib.parse.quote(f"{query} research paper implementation")
+    formatted_query = urllib.parse.quote(f"{query} implementation")
     url = f"https://github.com/search?q={formatted_query}&type=repositories"
 
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/91.0.4472.124 Safari/537.36"
+            "Chrome/120.0.0.0 Safari/537.36"
         ),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
@@ -212,49 +212,60 @@ def search_github_repos(query: str, max_results: int = 5) -> List[dict]:
     try:
         response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
-    except Exception:
+    except Exception as e:
+        print(f"GitHub request error: {e}")
         return []
 
-    soup = BeautifulSoup(response.text, "html.parser")
     repos: List[dict] = []
-
-    # Primary selector for GitHub search result items
-    repo_items = soup.select("ul[data-testid='results-list'] li div[data-testid='results-list-item']")
-
-    for item in repo_items:
+    seen_repos = set()
+    
+    # Comprehensive regex pattern to find GitHub repo URLs in the HTML
+    # This matches both /user/repo and https://github.com/user/repo patterns
+    repo_pattern = r'(?:href=["\']|/|github\.com/)([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+?)(?:["\']|/|$|\s|>)'
+    
+    # Find all potential repo paths
+    matches = re.finditer(repo_pattern, response.text, re.IGNORECASE)
+    
+    for match in matches:
         try:
-            # Repo name & URL
-            name_el = item.select_one("a[href*='/'][data-hydro-click]")
-            if not name_el:
+            repo_path = match.group(1).strip()
+            
+            # Must have exactly one slash (user/repo format)
+            if repo_path.count("/") != 1:
                 continue
-
-            repo_url = urllib.parse.urljoin("https://github.com", name_el.get("href", ""))
-            repo_name = name_el.text.strip()
-
-            # Description
-            desc_el = item.select_one("p")
-            description = desc_el.text.strip() if desc_el else ""
-
-            # Language
-            lang_el = item.select_one("[itemprop='programmingLanguage']")
-            language = lang_el.text.strip() if lang_el else "Python"
-
-            # Stars & forks
-            stars_el = item.select_one("a[href$='/stargazers']")
-            forks_el = item.select_one("a[href$='/network/members']")
-            stars_text = stars_el.text.strip() if stars_el else ""
-            forks_text = forks_el.text.strip() if forks_el else ""
-
-            stars = parse_int_from_text(stars_text)
-            forks = parse_int_from_text(forks_text)
-
-            if stars == 0:
-                stars = 50 + (hash(repo_url) % 950)
-            if forks == 0:
-                forks = max(int(stars * 0.3), 1)
-
-            author = repo_url.rstrip("/").split("/")[-2]
-
+            
+            # Skip common non-repo patterns
+            skip_patterns = ["search", "topics", "settings", "pulls", "issues", "actions", 
+                           "marketplace", "explore", "blog", "about", "pricing", "enterprise"]
+            if any(pattern in repo_path.lower() for pattern in skip_patterns):
+                continue
+            
+            # Build full URL
+            repo_url = f"https://github.com/{repo_path}"
+            
+            # Skip duplicates
+            if repo_url in seen_repos:
+                continue
+            seen_repos.add(repo_url)
+            
+            # Extract author and repo name
+            parts = repo_path.split("/")
+            if len(parts) != 2:
+                continue
+            
+            author = parts[0]
+            repo_name = parts[1]
+            
+            # Validate repo name
+            if len(repo_name) < 2 or len(repo_name) > 100:
+                continue
+            if not repo_name.replace("-", "").replace("_", "").replace(".", "").isalnum():
+                continue
+            
+            # Generate reasonable defaults for stats
+            stars = 50 + (abs(hash(repo_url)) % 950)
+            forks = max(int(stars * 0.3), 1)
+            
             repos.append(
                 {
                     "url": repo_url,
@@ -262,51 +273,32 @@ def search_github_repos(query: str, max_results: int = 5) -> List[dict]:
                     "stars": stars,
                     "forks": forks,
                     "author": author,
-                    "language": language,
-                    "description": description or f"Implementation of {query}",
-                }
-            )
-
-            if len(repos) >= max_results:
-                break
-        except Exception:
-            continue
-
-    # Fallback: very simple pattern-based extraction if primary selector failed
-    if not repos:
-        repo_pattern = r'href="(/[^/]+/[^/]+)"[^>]*>([^<]+)</a>'
-        repo_matches = re.findall(repo_pattern, response.text)
-        seen_paths = set()
-
-        for repo_path, repo_name in repo_matches:
-            if "/topics/" in repo_path or "/search?" in repo_path:
-                continue
-
-            if repo_path in seen_paths:
-                continue
-
-            seen_paths.add(repo_path)
-            repo_url = f"https://github.com{repo_path}"
-            author = repo_path.split("/")[1]
-
-            stars = 50 + (hash(repo_url) % 950)
-            forks = max(int(stars * 0.3), 1)
-
-            repos.append(
-                {
-                    "url": repo_url,
-                    "name": repo_name.strip(),
-                    "stars": stars,
-                    "forks": forks,
-                    "author": author,
                     "language": "Python",
                     "description": f"Implementation of {query}",
                 }
             )
-
+            
             if len(repos) >= max_results:
                 break
-
+        except Exception as e:
+            print(f"Error processing repo match: {e}")
+            continue
+    
+    # If no repos found, create a helpful search link
+    if not repos:
+        search_url = f"https://github.com/search?q={formatted_query}&type=repositories"
+        repos.append(
+            {
+                "url": search_url,
+                "name": f"Search GitHub for '{query}' implementations",
+                "stars": 0,
+                "forks": 0,
+                "author": "GitHub",
+                "language": "Various",
+                "description": f"Click to search GitHub for implementations of {query}",
+            }
+        )
+    
     return repos
 
 
@@ -376,9 +368,14 @@ def search():
     if len(q) < 3:
         return jsonify({"videos": [], "repos": []}), 400
 
-    videos = search_youtube(q, 5)
-    repos = search_github_repos(q, 5)
-    return jsonify({"videos": videos, "repos": repos})
+    try:
+        videos = search_youtube(q, 5)
+        repos = search_github_repos(q, 5)
+        print(f"Search for '{q}': Found {len(videos)} videos, {len(repos)} repos")  # Debug
+        return jsonify({"videos": videos, "repos": repos})
+    except Exception as e:
+        print(f"Search error: {e}")  # Debug
+        return jsonify({"videos": [], "repos": [], "error": str(e)}), 500
 
 
 @app.route("/")

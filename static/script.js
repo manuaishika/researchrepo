@@ -2,7 +2,6 @@
 const categoryList = document.getElementById("category-list");
 const yearSelect = document.getElementById("year-select");
 const currentCategoryTitle = document.getElementById("current-category-title");
-const popularPapersContainer = document.getElementById("popular-papers-container");
 const searchForm = document.getElementById("search-form");
 const paperInput = document.getElementById("paper-input");
 const autocompleteDropdown = document.getElementById("autocomplete-dropdown");
@@ -22,7 +21,8 @@ let autocompleteDebounceTimer = null;
 async function init() {
   await Promise.all([loadCategories(), loadYears()]);
   setupEventListeners();
-  await loadPopularPapers(currentCategory, currentYear);
+  // Show results section by default (empty)
+  resultsSection.classList.add("visible");
 }
 
 // Load categories from API
@@ -68,10 +68,9 @@ function renderCategories() {
       document.querySelectorAll(".category-item").forEach((i) => i.classList.remove("active"));
       item.classList.add("active");
 
-      // Update current category and load papers
+      // Update current category
       currentCategory = item.dataset.category;
-      currentCategoryTitle.textContent = currentCategory;
-      loadPopularPapers(currentCategory, currentYear);
+      currentCategoryTitle.textContent = currentCategory === "All" ? "Research Paper Explorer" : currentCategory;
     });
   });
 }
@@ -168,7 +167,7 @@ function setupEventListeners() {
   // Year selector change
   yearSelect.addEventListener("change", (event) => {
     currentYear = event.target.value || null;
-    loadPopularPapers(currentCategory, currentYear);
+    // Year filter is for category browsing, doesn't affect search
   });
 
   // Search input for autocomplete
@@ -179,7 +178,10 @@ function setupEventListeners() {
   
   // Hide autocomplete when clicking outside
   document.addEventListener("click", (event) => {
-    if (!paperInput.contains(event.target) && !autocompleteDropdown.contains(event.target)) {
+    const target = event.target;
+    if (!paperInput.contains(target) && 
+        !autocompleteDropdown.contains(target) && 
+        !target.closest('.autocomplete-item')) {
       hideAutocomplete();
     }
   });
@@ -195,146 +197,9 @@ function setupEventListeners() {
   });
 }
 
-// Handle search input for autocomplete
-function handleSearchInput(event) {
-  const query = event.target.value.trim();
-  
-  // Clear previous timer
-  if (autocompleteDebounceTimer) {
-    clearTimeout(autocompleteDebounceTimer);
-  }
-  
-  // Hide autocomplete if query is too short
-  if (query.length < 2) {
-    hideAutocomplete();
-    return;
-  }
-  
-  // Debounce autocomplete requests
-  autocompleteDebounceTimer = setTimeout(() => {
-    loadAutocompleteSuggestions(query);
-  }, 300);
-}
-
-// Load autocomplete suggestions
-async function loadAutocompleteSuggestions(query) {
-  try {
-    const resp = await fetch(`/api/search-suggestions?q=${encodeURIComponent(query)}`);
-    if (!resp.ok) return;
-    
-    const data = await resp.json();
-    autocompleteSuggestions = data.suggestions || [];
-    renderAutocompleteSuggestions();
-  } catch (err) {
-    console.error("Error loading autocomplete suggestions:", err);
-    hideAutocomplete();
-  }
-}
-
-// Render autocomplete suggestions
-function renderAutocompleteSuggestions() {
-  if (autocompleteSuggestions.length === 0) {
-    hideAutocomplete();
-    return;
-  }
-  
-  selectedSuggestionIndex = -1;
-  
-  const html = autocompleteSuggestions
-    .map(
-      (suggestion, index) => `
-      <div class="autocomplete-item" data-index="${index}" data-paper="${escapeHtml(suggestion.title)}">
-        <div class="autocomplete-item-title">${escapeHtml(suggestion.title)}</div>
-        <div class="autocomplete-item-meta">
-          <span class="autocomplete-item-year">${suggestion.year || "N/A"}</span>
-          ${suggestion.category ? `<span class="autocomplete-item-category">${escapeHtml(suggestion.category)}</span>` : ""}
-        </div>
-      </div>
-    `
-    )
-    .join("");
-  
-  autocompleteDropdown.innerHTML = html;
-  autocompleteDropdown.classList.add("visible");
-  
-  // Add click handlers
-  document.querySelectorAll(".autocomplete-item").forEach((item) => {
-    item.addEventListener("click", () => {
-      const paperTitle = item.dataset.paper;
-      paperInput.value = paperTitle;
-      hideAutocomplete();
-      paperInput.focus();
-    });
-    
-    item.addEventListener("mouseenter", () => {
-      document.querySelectorAll(".autocomplete-item").forEach((i) => i.classList.remove("selected"));
-      item.classList.add("selected");
-      selectedSuggestionIndex = parseInt(item.dataset.index);
-    });
-  });
-}
-
-// Handle keyboard navigation in autocomplete
-function handleAutocompleteKeyboard(event) {
-  if (!autocompleteDropdown.classList.contains("visible")) return;
-  
-  const items = document.querySelectorAll(".autocomplete-item");
-  if (items.length === 0) return;
-  
-  switch (event.key) {
-    case "ArrowDown":
-      event.preventDefault();
-      selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, items.length - 1);
-      updateSelectedSuggestion(items);
-      break;
-      
-    case "ArrowUp":
-      event.preventDefault();
-      selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
-      updateSelectedSuggestion(items);
-      break;
-      
-    case "Enter":
-      if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < items.length) {
-        event.preventDefault();
-        const selectedItem = items[selectedSuggestionIndex];
-        const paperTitle = selectedItem.dataset.paper;
-        paperInput.value = paperTitle;
-        hideAutocomplete();
-        performSearch(paperTitle);
-      }
-      break;
-      
-    case "Escape":
-      hideAutocomplete();
-      paperInput.blur();
-      break;
-  }
-}
-
-// Update selected suggestion visually
-function updateSelectedSuggestion(items) {
-  items.forEach((item, index) => {
-    item.classList.toggle("selected", index === selectedSuggestionIndex);
-  });
-  
-  if (selectedSuggestionIndex >= 0) {
-    items[selectedSuggestionIndex].scrollIntoView({ block: "nearest" });
-  }
-}
-
-// Hide autocomplete dropdown
-function hideAutocomplete() {
-  autocompleteDropdown.classList.remove("visible");
-  autocompleteDropdown.innerHTML = "";
-  autocompleteSuggestions = [];
-  selectedSuggestionIndex = -1;
-}
-
 // Perform search
 async function performSearch(query) {
   setLoading(true);
-  resultsSection.classList.add("visible");
 
   try {
     let url = `/api/search?q=${encodeURIComponent(query)}`;
@@ -348,6 +213,7 @@ async function performSearch(query) {
     }
 
     const data = await resp.json();
+    console.log("Search results:", data); // Debug log
     renderVideos(data.videos || []);
     renderRepos(data.repos || []);
 
@@ -419,39 +285,198 @@ function renderVideos(videos) {
 
 // Render repos
 function renderRepos(repos) {
+  console.log("Rendering repos:", repos); // Debug log
+  
   if (!repos || repos.length === 0) {
     reposContainer.innerHTML =
       '<div class="empty-state">No code implementations found</div>';
     return;
   }
 
-  const html = repos
+  try {
+    const html = repos
+      .map(
+        (repo) => {
+          // Validate repo data
+          if (!repo.url || !repo.name) {
+            console.warn("Invalid repo data:", repo);
+            return "";
+          }
+          
+          return `
+          <a href="${escapeHtml(repo.url)}" target="_blank" rel="noopener noreferrer" class="repo-card">
+            <div class="repo-header">
+              <h3>${escapeHtml(repo.name)}</h3>
+              <div class="repo-stats">
+                <div class="repo-stat">
+                  <span>★</span>
+                  <span>${formatNumber(repo.stars || 0)}</span>
+                </div>
+                <div class="repo-stat">
+                  <span>⑂</span>
+                  <span>${formatNumber(repo.forks || 0)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="repo-details">
+              <p>${escapeHtml(repo.author || "Unknown")} • ${escapeHtml(repo.language || "Various")}</p>
+              <p>${escapeHtml(repo.description || "No description available")}</p>
+            </div>
+          </a>
+        `;
+        }
+      )
+      .filter(html => html !== "") // Remove empty strings
+      .join("");
+
+    if (!html) {
+      reposContainer.innerHTML =
+        '<div class="empty-state">No valid code implementations found</div>';
+      return;
+    }
+
+    reposContainer.innerHTML = html;
+  } catch (error) {
+    console.error("Error rendering repos:", error);
+    reposContainer.innerHTML =
+      '<div class="empty-state">Error displaying code implementations</div>';
+  }
+}
+
+// Handle search input for autocomplete
+function handleSearchInput(event) {
+  const query = event.target.value.trim();
+  
+  // Clear previous timer
+  if (autocompleteDebounceTimer) {
+    clearTimeout(autocompleteDebounceTimer);
+  }
+  
+  // Hide autocomplete if query is too short
+  if (query.length < 2) {
+    hideAutocomplete();
+    return;
+  }
+  
+  // Debounce autocomplete requests
+  autocompleteDebounceTimer = setTimeout(() => {
+    loadAutocompleteSuggestions(query);
+  }, 300);
+}
+
+// Load autocomplete suggestions
+async function loadAutocompleteSuggestions(query) {
+  try {
+    const resp = await fetch(`/api/search-suggestions?q=${encodeURIComponent(query)}`);
+    if (!resp.ok) return;
+    
+    const data = await resp.json();
+    autocompleteSuggestions = data.suggestions || [];
+    renderAutocompleteSuggestions();
+  } catch (err) {
+    console.error("Error loading autocomplete suggestions:", err);
+    hideAutocomplete();
+  }
+}
+
+// Render autocomplete suggestions
+function renderAutocompleteSuggestions() {
+  if (autocompleteSuggestions.length === 0) {
+    hideAutocomplete();
+    return;
+  }
+  
+  selectedSuggestionIndex = -1;
+  
+  const html = autocompleteSuggestions
     .map(
-      (repo) => `
-      <a href="${escapeHtml(repo.url)}" target="_blank" rel="noopener noreferrer" class="repo-card">
-        <div class="repo-header">
-          <h3>${escapeHtml(repo.name)}</h3>
-          <div class="repo-stats">
-            <div class="repo-stat">
-              <span>★</span>
-              <span>${formatNumber(repo.stars)}</span>
-            </div>
-            <div class="repo-stat">
-              <span>⑂</span>
-              <span>${formatNumber(repo.forks)}</span>
-            </div>
-          </div>
+      (suggestion, index) => `
+      <div class="autocomplete-item" data-index="${index}" data-paper="${escapeHtml(suggestion.title)}">
+        <div class="autocomplete-item-title">${escapeHtml(suggestion.title)}</div>
+        <div class="autocomplete-item-meta">
+          <span class="autocomplete-item-year">${suggestion.year || "N/A"}</span>
+          ${suggestion.category ? `<span class="autocomplete-item-category">${escapeHtml(suggestion.category)}</span>` : ""}
         </div>
-        <div class="repo-details">
-          <p>${escapeHtml(repo.author)} • ${escapeHtml(repo.language || "Various")}</p>
-          <p>${escapeHtml(repo.description || "No description available")}</p>
-        </div>
-      </a>
+      </div>
     `
     )
     .join("");
+  
+  autocompleteDropdown.innerHTML = html;
+  autocompleteDropdown.classList.add("visible");
+  
+  // Add click handlers
+  document.querySelectorAll(".autocomplete-item").forEach((item) => {
+    item.addEventListener("click", async () => {
+      const paperTitle = item.dataset.paper;
+      paperInput.value = paperTitle;
+      hideAutocomplete();
+      await performSearch(paperTitle);
+    });
+    
+    item.addEventListener("mouseenter", () => {
+      document.querySelectorAll(".autocomplete-item").forEach((i) => i.classList.remove("selected"));
+      item.classList.add("selected");
+      selectedSuggestionIndex = parseInt(item.dataset.index);
+    });
+  });
+}
 
-  reposContainer.innerHTML = html;
+// Handle keyboard navigation in autocomplete
+function handleAutocompleteKeyboard(event) {
+  if (!autocompleteDropdown.classList.contains("visible")) return;
+  
+  const items = document.querySelectorAll(".autocomplete-item");
+  if (items.length === 0) return;
+  
+  switch (event.key) {
+    case "ArrowDown":
+      event.preventDefault();
+      selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, items.length - 1);
+      updateSelectedSuggestion(items);
+      break;
+      
+    case "ArrowUp":
+      event.preventDefault();
+      selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+      updateSelectedSuggestion(items);
+      break;
+      
+    case "Enter":
+      if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < items.length) {
+        event.preventDefault();
+        const selectedItem = items[selectedSuggestionIndex];
+        const paperTitle = selectedItem.dataset.paper;
+        paperInput.value = paperTitle;
+        hideAutocomplete();
+        performSearch(paperTitle);
+      }
+      break;
+      
+    case "Escape":
+      hideAutocomplete();
+      paperInput.blur();
+      break;
+  }
+}
+
+// Update selected suggestion visually
+function updateSelectedSuggestion(items) {
+  items.forEach((item, index) => {
+    item.classList.toggle("selected", index === selectedSuggestionIndex);
+  });
+  
+  if (selectedSuggestionIndex >= 0) {
+    items[selectedSuggestionIndex].scrollIntoView({ block: "nearest" });
+  }
+}
+
+// Hide autocomplete dropdown
+function hideAutocomplete() {
+  autocompleteDropdown.classList.remove("visible");
+  autocompleteDropdown.innerHTML = "";
+  autocompleteSuggestions = [];
+  selectedSuggestionIndex = -1;
 }
 
 // Utility functions

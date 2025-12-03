@@ -11,7 +11,7 @@
       <!-- Sidebar Navigation -->
       <aside class="sidebar">
         <div class="sidebar-header">
-          <h1 class="logo">📚 Classic Papers</h1>
+          <h1 class="logo">Paperverse</h1>
           <div class="year-selector-wrapper">
             <select id="year-select" class="year-select" aria-label="Filter papers by year">
               <option value="">All Years</option>
@@ -28,7 +28,7 @@
       <!-- Main Content -->
       <main class="main-content">
         <header class="content-header">
-          <h2 id="current-category-title" class="category-title">All Papers</h2>
+          <h2 id="current-category-title" class="category-title">Research Paper Explorer</h2>
           <div class="header-actions">
             <div class="search-container">
               <form id="search-form" class="search-form">
@@ -36,7 +36,7 @@
                   <input
                     id="paper-input"
                     type="text"
-                    placeholder="Search for a research paper or enter keywords..."
+                    placeholder="Enter a research paper name (e.g. 'Attention is All You Need')"
                     autocomplete="off"
                   />
                   <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
@@ -47,13 +47,6 @@
           </div>
         </header>
 
-        <!-- Popular Papers Grid -->
-        <section class="papers-section">
-          <div id="popular-papers-container" class="papers-grid">
-            <div class="loading-state">Loading popular papers...</div>
-          </div>
-        </section>
-
         <!-- Search Results -->
         <section class="results-section" id="results-section">
           <div class="results-layout">
@@ -63,7 +56,7 @@
                   <span>📺 YouTube Explanations</span>
                 </div>
                 <div id="videos-container" class="results-body">
-                  <div class="empty-state">No video explanations found</div>
+                  <div class="empty-state">Enter a paper name to find video explanations</div>
                 </div>
               </div>
             </div>
@@ -74,7 +67,7 @@
                   <span>💻 Code Implementations</span>
                 </div>
                 <div id="repos-container" class="results-body">
-                  <div class="empty-state">No code implementations found</div>
+                  <div class="empty-state">Enter a paper name to find implementations</div>
                 </div>
               </div>
             </div>
